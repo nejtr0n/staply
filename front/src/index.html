@@ -1,0 +1,181 @@
+<html>
+<head>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="http://www.expertphp.in/js/jquery.form.js"></script>
+    <!-- jQuery Modal -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.css" />
+    <script>
+        // extend jquery serializer
+        (function($) {
+            $.fn.serializefiles = function() {
+                var obj = $(this);
+                var formData = new FormData();
+                $.each($(obj).find("input[type='file']"), function(i, tag) {
+                    $.each($(tag)[0].files, function(i, file) {
+                        formData.append(tag.name, file);
+                    });
+                });
+                var params = $(obj).serializeArray();
+                $.each(params, function (i, val) {
+                    formData.append(val.name, val.value);
+                });
+                return formData;
+            };
+        })(jQuery);
+
+        function preview_images(div, input) {
+            $('#' + div).empty();
+            var total_file=document.getElementById(input).files.length;
+            for(var i=0;i<total_file;i++)
+            {
+                $('#' + div).append("<div class='col-md-3'><img class='img-responsive' src='"+URL.createObjectURL(event.target.files[i])+"'></div>");
+            }
+        }
+        $(document).ready(function() {
+            $("#file_form").submit(function(e) {
+
+                e.preventDefault(); // avoid to execute the actual submit of the form.
+
+                let form = $(this);
+                let url = form.attr('action');
+
+                $.ajax({
+                    type: "POST",
+                    url: url,
+                    data: form.serializefiles(),
+                    contentType: false,
+                    processData: false,
+                }).done(function(data) {
+                    insertImages(data)
+                }).fail(function(data) {
+                    alert(data.responseJSON.message)
+                });
+
+            });
+
+            $("#link_form").submit(function(e) {
+                e.preventDefault(); // avoid to execute the actual submit of the form.
+
+                let form = $(this);
+                let url = form.attr('action');
+
+                $.ajax({
+                    type: "POST",
+                    url: url,
+                    data: form.serialize(),
+                }).done(function(data) {
+                    insertImages(data)
+                }).fail(function(data) {
+                    alert(data.responseJSON.message)
+                });
+            });
+
+            $('#json_form').on('submit', function(e){
+                e.preventDefault();
+                let files = document.getElementById('files').files;
+                let images = [];
+
+                for(let i=0; i<files.length; i++) {
+                    images.push(getBase64(files[i]));
+                }
+                Promise.all(images).then(values => {
+                    $.ajax({
+                        type: "POST",
+                        url: "/storage/upload/json",
+                        data: JSON.stringify(values),
+                        contentType: 'application/json',
+                        dataType: 'json',
+                    }).done(function(data) {
+                        insertImages(data)
+                    }).fail(function(data) {
+                        alert(data.responseJSON.message)
+                    });
+                    console.log(values)
+                });
+            });
+        });
+
+        function insertImages(data) {
+            $('#modal .content').empty()
+            const $ul = $('<ul>', {class: "mylist"}).append(
+                data.map(file =>
+                    $("<li>")
+                        .append($("<a>").text(file.name).attr("href", file.path).attr("target", "_blank"))
+                        .append("&nbsp;")
+                        .append($("<a>").text("(resized)").attr("href", file.resize).attr("target", "_blank"))
+                )
+            );
+            $('#modal .content').append($ul)
+            $('#modal').modal()
+        }
+
+        function getBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve({
+                    name: file.name,
+                    size: file.size,
+                    type: file.type,
+                    content: reader.result,
+                });
+                reader.onerror = error => reject(error);
+            });
+        }
+    </script>
+</head>
+<body>
+<div class="container">
+    <div id="modal" class="modal">
+        <div class="content">123</div>
+        <a href="#" rel="modal:close"></a>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <h1>Upload multiple images (use ctrl)</h1>
+            <form id="file_form" action="/storage/upload" method="post" enctype="multipart/form-data">
+                <input type="file" class="form-control" id="images" name="images[]" onchange="preview_images('image_preview', 'images');" multiple/>
+                <input type="submit" class="btn btn-primary" name='submit_image' value="Upload Multiple Image"/>
+            </form>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="row" id="image_preview"></div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <h1>Upload link</h1>
+            <form id="link_form" action="/storage/upload/link" method="post">
+                <input type="url" name="url" id="url"
+                       placeholder="https://example.com"
+                       class="form-control"
+                       required>
+                <input type="submit" class="btn btn-primary" name='submit_image' value="Upload by link"/>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <h1>Upload json (use ctrl)</h1>
+            <form id="json_form" action="/storage/upload/json" method="post">
+                <input type="file" class="form-control" id="files" name="files[]" onchange="preview_images('json_preview', 'files');" multiple/>
+                <input type="submit" class="btn btn-primary" name='submit_image' value="Upload json"/>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="row" id="json_preview"></div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
