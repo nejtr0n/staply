@@ -95,7 +95,7 @@ func link(c *gin.Context) {
 	client := &http.Client{Transport: tr}
 	file, err := client.Get(url)
 	if err != nil {
-		c.String(http.StatusBadRequest, fmt.Sprintf("error downloading file: %s", err.Error()))
+		errorResponse(c, fmt.Sprintf("error downloading file: %s", err.Error()))
 		return
 	}
 	defer file.Body.Close()
